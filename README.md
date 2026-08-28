@@ -1,175 +1,151 @@
+# MediaPipe Tutorials
+
+A comprehensive tutorial series covering MediaPipe's most powerful computer-vision solutions,
+from installation through production-grade applications.
+
 ---
-layout: forward
-target: https://developers.google.com/mediapipe
-title: Home
-nav_order: 1
+
+## What is MediaPipe?
+
+MediaPipe is Google's open-source, cross-platform framework for building real-time perception
+pipelines. Originally developed to power Google's own products (Google Meet background
+segmentation, Pixel camera features, YouTube AR effects), it was open-sourced in 2019 and has
+since become the de-facto toolkit for on-device ML inference in mobile, web, desktop, and
+embedded environments.
+
+At its core, MediaPipe wraps pre-trained, highly optimised ML models inside a **graph-based
+dataflow engine**. Each graph node is a *calculator* that receives typed *packets* from input
+*streams*, transforms them, and emits packets on output streams. The framework handles
+threading, back-pressure, GPU/CPU routing, and model loading automatically, so application
+developers can focus on what the data means rather than how it flows.
+
 ---
 
-----
+## Pipeline Architecture Overview
 
-**Attention:** *We have moved to
-[https://developers.google.com/mediapipe](https://developers.google.com/mediapipe)
-as the primary developer documentation site for MediaPipe as of April 3, 2023.*
+```
+                     ┌─────────────────────────────────────────────────────┐
+                     │              MediaPipe Graph                         │
+                     │                                                       │
+  ┌──────────┐       │  ┌───────────┐   ┌───────────┐   ┌───────────┐     │   ┌──────────────┐
+  │  Input   │       │  │ Image     │   │  Model    │   │  Post-    │     │   │   Output     │
+  │  Source  ├──────►│  │ Pre-proc  ├──►│ Inference ├──►│  process  ├─────┼──►│  (landmarks  │
+  │ (camera/ │       │  │ Calculator│   │ Calculator│   │ Calculator│     │   │   boxes,     │
+  │  video/  │       │  └───────────┘   └───────────┘   └───────────┘     │   │   masks …)   │
+  │  image)  │       │        ▲               ▲               ▲            │   └──────────────┘
+  └──────────┘       │        │               │               │            │
+                     │  ┌─────┴───────────────┴───────────────┴──────┐    │
+                     │  │            Side-Packet Inputs               │    │
+                     │  │  (model files, config options, thresholds)  │    │
+                     │  └─────────────────────────────────────────────┘    │
+                     └─────────────────────────────────────────────────────┘
+```
 
-![MediaPipe](https://developers.google.com/static/mediapipe/images/home/hero_01_1920.png)
+Key concepts:
+- **Graph (.pbtxt)** – a directed acyclic (or with feedback loops) description of calculators
+  and the streams connecting them.
+- **Calculator** – a C++ (or Python-wrapped) class that processes one or more input stream
+  packets and produces output packets. Stateless or stateful.
+- **Packet** – a timestamped, strongly-typed datum travelling on a stream.
+- **Stream** – a time-ordered sequence of packets connecting two calculators.
+- **Side packet** – a one-time value injected at graph startup (e.g., model path, threshold).
 
-**Attention**: MediaPipe Solutions Preview is an early release. [Learn
-more](https://developers.google.com/mediapipe/solutions/about#notice).
+---
 
-**On-device machine learning for everyone**
+## Tutorial List
 
-Delight your customers with innovative machine learning features. MediaPipe
-contains everything that you need to customize and deploy to mobile (Android,
-iOS), web, desktop, edge devices, and IoT, effortlessly.
+| # | Title | Description |
+|---|-------|-------------|
+| 01 | [Getting Started](tutorials/01_getting_started.md) | Install MediaPipe, understand the graph model, run a Hello-World face detection example, and learn the difference between the Solutions API and the Tasks API. Includes a detailed troubleshooting section covering camera permissions, model downloads, and GPU setup. |
+| 02 | [Face Detection & Mesh](tutorials/02_face_detection.md) | Explore the BlazeFace detector and Face Mesh model (478 landmarks). Build a real-time webcam loop, estimate face distance from inter-pupillary distance, track multiple faces with IDs, and export landmark data to CSV for downstream analysis. |
+| 03 | [Hand Tracking](tutorials/03_hand_tracking.md) | Work with the 21-keypoint Hand Landmark model to build a complete rock/paper/scissors gesture recogniser, a finger-counting application, left/right hand classification logic, and a gesture-driven mouse-control sketch that can be adapted for accessibility tools. |
+| 04 | [Pose Estimation](tutorials/04_pose_estimation.md) | Use BlazePose's 33 body landmarks to build a bicep-curl rep counter and a squat counter complete with angle-threshold feedback. Learn joint-angle calculation utilities, full-body vs upper-body model selection, and real-time optimisation with frame-skipping and threading. |
+| 05 | [Object Detection](tutorials/05_object_detection.md) | Compare EfficientDet-Lite0/1/2 for accuracy/speed trade-offs, build a real-time bounding-box detector, tune score thresholds and NMS parameters, implement a centroid tracker for multi-object tracking, count objects by class, and benchmark FPS across CPU/GPU/EdgeTPU hardware. |
+| 06 | [Image Segmentation](tutorials/06_image_segmentation.md) | Apply selfie segmentation and multi-class segmentation models. Build real-time background replacement with OpenCV, create a virtual green-screen pipeline for video streams, and fuse segmentation masks with object-detection bounding boxes for richer scene understanding. |
+| 07 | [Holistic Solution](tutorials/07_holistic_solution.md) | Run all sub-models simultaneously — face mesh, both hands, and full-body pose — with the Holistic API. Build a synchronised multi-landmark tracker, sketch an avatar controller, outline a sign-language recognition pipeline, and learn to budget CPU time across the concurrent sub-models. |
 
-*   [See demos](https://goo.gle/mediapipe-studio)
-*   [Learn more](https://developers.google.com/mediapipe/solutions)
+---
 
-## Get started
+## Prerequisites
 
-You can get started with MediaPipe Solutions by by checking out any of the
-developer guides for
-[vision](https://developers.google.com/mediapipe/solutions/vision/object_detector),
-[text](https://developers.google.com/mediapipe/solutions/text/text_classifier),
-and
-[audio](https://developers.google.com/mediapipe/solutions/audio/audio_classifier)
-tasks. If you need help setting up a development environment for use with
-MediaPipe Tasks, check out the setup guides for
-[Android](https://developers.google.com/mediapipe/solutions/setup_android), [web
-apps](https://developers.google.com/mediapipe/solutions/setup_web), and
-[Python](https://developers.google.com/mediapipe/solutions/setup_python).
+- Python 3.8 – 3.12
+- A webcam (for live demos) or sample video/image files
+- OpenCV (`pip install opencv-python`)
+- NumPy (`pip install numpy`)
+- Basic familiarity with Python and NumPy array indexing
 
-## Solutions
+Optional (for GPU acceleration):
+- CUDA 11.x + cuDNN 8.x (Linux / Windows)
+- Or an Apple Silicon Mac (Metal backend)
 
-MediaPipe Solutions provides a suite of libraries and tools for you to quickly
-apply artificial intelligence (AI) and machine learning (ML) techniques in your
-applications. You can plug these solutions into your applications immediately,
-customize them to your needs, and use them across multiple development
-platforms. MediaPipe Solutions is part of the MediaPipe [open source
-project](https://github.com/google/mediapipe), so you can further customize the
-solutions code to meet your application needs.
+---
 
-These libraries and resources provide the core functionality for each MediaPipe
-Solution:
+## Installation
 
-*   **MediaPipe Tasks**: Cross-platform APIs and libraries for deploying
-    solutions. [Learn
-    more](https://developers.google.com/mediapipe/solutions/tasks).
-*   **MediaPipe models**: Pre-trained, ready-to-run models for use with each
-    solution.
+```bash
+# Recommended: create a virtual environment first
+python -m venv mp-env
+source mp-env/bin/activate          # Windows: mp-env\Scripts\activate
 
-These tools let you customize and evaluate solutions:
+# Core install
+pip install mediapipe
 
-*   **MediaPipe Model Maker**: Customize models for solutions with your data.
-    [Learn more](https://developers.google.com/mediapipe/solutions/model_maker).
-*   **MediaPipe Studio**: Visualize, evaluate, and benchmark solutions in your
-    browser. [Learn
-    more](https://developers.google.com/mediapipe/solutions/studio).
+# Full stack for all tutorials
+pip install mediapipe opencv-python numpy pandas matplotlib
+```
 
-### Legacy solutions
+### Verify installation
 
-We have ended support for [these MediaPipe Legacy Solutions](https://developers.google.com/mediapipe/solutions/guide#legacy)
-as of March 1, 2023. All other MediaPipe Legacy Solutions will be upgraded to
-a new MediaPipe Solution. See the [Solutions guide](https://developers.google.com/mediapipe/solutions/guide#legacy)
-for details. The [code repository](https://github.com/google/mediapipe/tree/master/mediapipe)
-and prebuilt binaries for all MediaPipe Legacy Solutions will continue to be
-provided on an as-is basis.
+```python
+import mediapipe as mp
+print(mp.__version__)   # e.g., 0.10.x
+```
 
-For more on the legacy solutions, see the [documentation](https://github.com/google/mediapipe/tree/master/docs/solutions).
+---
 
-## Framework
+## How to Run Each Tutorial
 
-To start using MediaPipe Framework, [install MediaPipe
-Framework](https://developers.google.com/mediapipe/framework/getting_started/install)
-and start building example applications in C++, Android, and iOS.
+Every `.md` tutorial contains complete, self-contained Python code blocks.
+Copy the code into a `.py` file (or a Jupyter notebook) and run it directly.
 
-[MediaPipe Framework](https://developers.google.com/mediapipe/framework) is the
-low-level component used to build efficient on-device machine learning
-pipelines, similar to the premade MediaPipe Solutions.
+```bash
+# Example – Tutorial 02, face mesh webcam demo
+python face_mesh_demo.py
 
-Before using MediaPipe Framework, familiarize yourself with the following key
-[Framework
-concepts](https://developers.google.com/mediapipe/framework/framework_concepts/overview.md):
+# Press Q in the OpenCV window to quit
+```
 
-*   [Packets](https://developers.google.com/mediapipe/framework/framework_concepts/packets.md)
-*   [Graphs](https://developers.google.com/mediapipe/framework/framework_concepts/graphs.md)
-*   [Calculators](https://developers.google.com/mediapipe/framework/framework_concepts/calculators.md)
+All tutorials follow the same structure:
 
-## Community
+```python
+import cv2
+import mediapipe as mp
 
-*   [Slack community](https://mediapipe.page.link/joinslack) for MediaPipe
-    users.
-*   [Discuss](https://groups.google.com/forum/#!forum/mediapipe) - General
-    community discussion around MediaPipe.
-*   [Awesome MediaPipe](https://mediapipe.page.link/awesome-mediapipe) - A
-    curated list of awesome MediaPipe related frameworks, libraries and
-    software.
+# 1. Initialise the solution
+# 2. Open a VideoCapture (0 = default webcam)
+# 3. Loop: read frame -> process -> draw -> imshow
+# 4. Release resources
+```
 
-## Contributing
+---
 
-We welcome contributions. Please follow these
-[guidelines](https://github.com/google/mediapipe/blob/master/CONTRIBUTING.md).
+## Repository Structure
 
-We use GitHub issues for tracking requests and bugs. Please post questions to
-the MediaPipe Stack Overflow with a `mediapipe` tag.
+```
+mediapipe-tutorials/
+├── README.md
+└── tutorials/
+    ├── 01_getting_started.md / .tex
+    ├── 02_face_detection.md  / .tex
+    ├── 03_hand_tracking.md   / .tex
+    ├── 04_pose_estimation.md / .tex
+    ├── 05_object_detection.md/ .tex
+    ├── 06_image_segmentation.md / .tex
+    └── 07_holistic_solution.md  / .tex
+```
 
-## Privacy Notice
+---
 
-Last modified: June 5, 2026
+## License
 
-When you use MediaPipe Tasks, processing of the input data (e.g. images, video,
-text) takes place on device, and MediaPipe does not send that input data to
-Google servers. As a result, you can use our MediaPipe Tasks APIs for
-processing data that should not leave the device.
-
-MediaPipe Tasks APIs send metrics about the performance and utilization of the
-APIs in your app to Google. Google uses this metrics data to measure
-performance, usage, debug, maintain and improve the MediaPipe Tasks, as further
-described in our [Privacy Policy](https://policies.google.com/privacy).
-
-**You are responsible for obtaining informed consent from your app users about
-Google's processing of MediaPipe metrics data as required by applicable law.**
-
-## Resources
-
-### Publications
-
-*   [Bringing artworks to life with AR](https://developers.googleblog.com/2021/07/bringing-artworks-to-life-with-ar.html)
-    in Google Developers Blog
-*   [Prosthesis control via Mirru App using MediaPipe hand tracking](https://developers.googleblog.com/2021/05/control-your-mirru-prosthesis-with-mediapipe-hand-tracking.html)
-    in Google Developers Blog
-*   [SignAll SDK: Sign language interface using MediaPipe is now available for
-    developers](https://developers.googleblog.com/2021/04/signall-sdk-sign-language-interface-using-mediapipe-now-available.html)
-    in Google Developers Blog
-*   [MediaPipe Holistic - Simultaneous Face, Hand and Pose Prediction, on
-    Device](https://ai.googleblog.com/2020/12/mediapipe-holistic-simultaneous-face.html)
-    in Google AI Blog
-*   [Background Features in Google Meet, Powered by Web ML](https://ai.googleblog.com/2020/10/background-features-in-google-meet.html)
-    in Google AI Blog
-*   [MediaPipe 3D Face Transform](https://developers.googleblog.com/2020/09/mediapipe-3d-face-transform.html)
-    in Google Developers Blog
-*   [Instant Motion Tracking With MediaPipe](https://developers.googleblog.com/2020/08/instant-motion-tracking-with-mediapipe.html)
-    in Google Developers Blog
-*   [BlazePose - On-device Real-time Body Pose Tracking](https://ai.googleblog.com/2020/08/on-device-real-time-body-pose-tracking.html)
-    in Google AI Blog
-*   [MediaPipe Iris: Real-time Eye Tracking and Depth Estimation](https://ai.googleblog.com/2020/08/mediapipe-iris-real-time-iris-tracking.html)
-    in Google AI Blog
-*   [MediaPipe KNIFT: Template-based feature matching](https://developers.googleblog.com/2020/04/mediapipe-knift-template-based-feature-matching.html)
-    in Google Developers Blog
-*   [Alfred Camera: Smart camera features using MediaPipe](https://developers.googleblog.com/2020/03/alfred-camera-smart-camera-features-using-mediapipe.html)
-    in Google Developers Blog
-*   [Real-Time 3D Object Detection on Mobile Devices with MediaPipe](https://ai.googleblog.com/2020/03/real-time-3d-object-detection-on-mobile.html)
-    in Google AI Blog
-*   [AutoFlip: An Open Source Framework for Intelligent Video Reframing](https://ai.googleblog.com/2020/02/autoflip-open-source-framework-for.html)
-    in Google AI Blog
-*   [MediaPipe on the Web](https://developers.googleblog.com/2020/01/mediapipe-on-web.html)
-    in Google Developers Blog
-*   [Object Detection and Tracking using MediaPipe](https://developers.googleblog.com/2019/12/object-detection-and-tracking-using-mediapipe.html)
-    in Google Developers Blog
-*   [On-Device, Real-Time Hand Tracking with MediaPipe](https://ai.googleblog.com/2019/08/on-device-real-time-hand-tracking-with.html)
-    in Google AI Blog
-*   [MediaPipe: A Framework for Building Perception Pipelines](https://arxiv.org/abs/1906.08172)
-
-### Videos
-
-*   [YouTube Channel](https://www.youtube.com/c/MediaPipe)
+Tutorial content is released under CC-BY 4.0. Code samples are MIT licensed.
