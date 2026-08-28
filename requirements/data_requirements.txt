@@ -1,0 +1,88 @@
+================================================================================
+DATA REQUIREMENTS FOR 150-CLASS EFFICIENTDET-LITE2 CUSTOM TRAINING
+================================================================================
+
+[DATASET SIZE]
+- Per class minimum    : 300 images
+- Per class preferred  : 500 to 1 000 images
+- Total for 150 classes: approximately 75 000 to 150 000 labelled images
+- Negative / background samples: 10 to 15% of total image count
+  (images that contain none of the 150 target classes; helps reduce false positives)
+
+[IMAGE STANDARDS]
+- Accepted formats  : JPEG (.jpg / .jpeg) or PNG (.png)
+- Colour space      : sRGB (do not submit images with embedded ICC profiles
+                       other than sRGB or linear sRGB)
+- Minimum resolution: 640 x 480 pixels
+- Maximum resolution: 1920 x 1080 pixels (down-sample anything larger before
+                       ingestion; the model input is 512 x 512 for Lite2)
+- Blur threshold    : Laplacian variance must exceed 100
+                       (compute with: cv2.Laplacian(gray, cv2.CV_64F).var())
+                       Images below this threshold must be discarded or re-shot
+- Occlusion limit   : At most 50% of any annotated object may be occluded per image
+                       Heavily occluded instances (> 50%) should be skipped in
+                       annotation and left as crowd / ignore regions if needed
+
+[ANNOTATION FORMAT]
+- Primary format    : COCO JSON (bounding boxes + category labels)
+                       Segmentation masks are optional and will be ignored
+                       during detection training
+- Alternate formats : Pascal VOC XML (one XML file per image)
+                       YOLO TXT (one TXT file per image, normalised coordinates)
+- Bounding-box minimum size: 32 x 32 pixels in the source image
+                       Boxes smaller than this threshold offer too little
+                       signal at the 512 x 512 input resolution and should be
+                       excluded from annotation
+- Box encoding      : [x_min, y_min, width, height] in COCO;
+                       [x_min, y_min, x_max, y_max] in VOC;
+                       [cx, cy, w, h] normalised in YOLO
+- Category IDs      : Must be contiguous integers starting at 1 (COCO convention)
+                       The background / unlabelled class is always index 0 and
+                       must NOT appear in the annotation file
+
+[SPLITS]
+- Training set  : 70% of total images
+- Validation set: 15% of total images
+- Test set      : 15% of total images
+- Split method  : Stratified split required -- every split must maintain equal
+                   class distribution (within the 3:1 imbalance limit below)
+- Test set must never be used during hyper-parameter search or early stopping
+- Each split must be written to a separate directory / TFRecord shard group
+
+[CLASS BALANCE]
+- Maximum imbalance ratio between any two classes: 3:1
+  (i.e. the most-represented class may have at most 3x the images of the least)
+- If raw collection exceeds this ratio, apply random under-sampling to the
+  majority class before TFRecord conversion
+- Minimum images per class in the validation split: 50
+- Minimum images per class in the test split: 50
+- Synthetic oversampling (copy-paste augmentation) is acceptable for classes
+  with fewer than 100 training images; mark synthetic images in metadata
+
+[HARDWARE]
+- Training GPU  : 16 GB VRAM minimum (NVIDIA RTX 3090 or A100 40 GB recommended)
+                   The training script uses mixed-precision (float16 activations +
+                   float32 master weights), which roughly halves VRAM usage
+- System RAM    : 32 GB minimum (64 GB recommended for large tf.data pipelines)
+- Storage       : 500 GB SSD for raw dataset + TFRecords + checkpoints
+                   (1 TB NVMe recommended for fast data loading)
+- CUDA / cuDNN  : CUDA 11.8 + cuDNN 8.6 (matches TF 2.13.0)
+
+[QUALITY CHECKLIST]
+Annotators must verify each of the following items before submitting images:
+
+  [ ] 1. Image is in focus (Laplacian variance > 100; reject blurry shots)
+  [ ] 2. Image resolution is within 640x480 -- 1920x1080; down-sample if needed
+  [ ] 3. Colour space is sRGB; strip non-sRGB ICC profiles
+  [ ] 4. Every visible target-class instance is annotated (no missed objects)
+  [ ] 5. Bounding box is tight with <= 5 px padding on each side
+  [ ] 6. Bounding box is at least 32 x 32 pixels in the source image
+  [ ] 7. Occluded objects (> 50% hidden) are flagged as crowd / ignored, not annotated
+  [ ] 8. Category label matches the official class name in class_map.json exactly
+  [ ] 9. Duplicate images (identical or near-identical frames from video) are removed
+         (use perceptual hash / pHash with threshold d < 8)
+  [ ] 10. EXIF data is stripped from final images before upload to protect privacy
+
+================================================================================
+END OF DATA REQUIREMENTS
+================================================================================

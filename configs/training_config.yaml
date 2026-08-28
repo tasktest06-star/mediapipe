@@ -1,0 +1,117 @@
+# ============================================================
+# Training configuration for EfficientDet-Lite2
+# 150 custom classes from scratch
+# ============================================================
+
+# ------------------------------------------------------------------
+# Model architecture
+# ------------------------------------------------------------------
+model:
+  architecture: efficientdet_lite2       # options: lite0 / lite1 / lite2 / lite3
+  num_classes: 150
+  input_image_shape: [512, 512, 3]       # HxWxC; Lite2 native size
+  backbone_pretrained: true              # use ImageNet-pretrained EfficientNet-B2
+  freeze_backbone_epochs: 5             # freeze backbone for first N epochs
+  min_level: 3
+  max_level: 7
+  num_scales: 3
+  aspect_ratios: [1.0, 2.0, 0.5]
+  anchor_scale: 4.0
+
+# ------------------------------------------------------------------
+# Dataset paths  (override on command line or set env vars)
+# ------------------------------------------------------------------
+dataset:
+  train_tfrecord_pattern: /data/tfrecords/train/shard-*.tfrecord
+  val_tfrecord_pattern:   /data/tfrecords/val/shard-*.tfrecord
+  test_tfrecord_pattern:  /data/tfrecords/test/shard-*.tfrecord
+  class_map_path:         /data/tfrecords/class_map.json
+  num_train_samples:      ~       # set to null/~ to auto-count from TFRecords
+  num_val_samples:        ~
+  cache_dataset: false            # set true if dataset fits in RAM
+
+# ------------------------------------------------------------------
+# Training hyper-parameters
+# ------------------------------------------------------------------
+training:
+  epochs: 100
+  batch_size: 16                  # reduce to 8 if GPU OOM on 16 GB card
+  learning_rate: 0.08             # SGD initial LR (cosine decay applied)
+  lr_warmup_epochs: 5
+  lr_schedule: cosine             # options: cosine | step | constant
+  optimizer: sgd                  # options: sgd | adam | adamw
+  momentum: 0.9
+  weight_decay: 4.0e-5
+  gradient_clip_norm: 10.0
+  mixed_precision: true           # float16 activations, float32 weights
+  early_stopping:
+    enabled: true
+    monitor: val_AP
+    patience: 15
+    min_delta: 0.001
+    restore_best_weights: true
+  label_smoothing: 0.0
+  box_loss_weight: 50.0
+  cls_loss_weight: 1.0
+
+# ------------------------------------------------------------------
+# Data augmentation (applied to training split only)
+# ------------------------------------------------------------------
+augmentation:
+  horizontal_flip: true
+  vertical_flip: false
+  random_crop:
+    enabled: true
+    min_scale: 0.5
+    max_scale: 1.0
+  color_jitter:
+    enabled: true
+    brightness: 0.2
+    contrast: 0.2
+    saturation: 0.2
+    hue: 0.1
+  random_rotate:
+    enabled: true
+    max_degrees: 15
+  mosaic:
+    enabled: true
+    probability: 0.5            # apply mosaic 4-image blend with this prob
+  cutout:
+    enabled: true
+    num_holes: 8
+    max_hole_size: 64
+  scale_jitter:
+    enabled: true
+    min_scale: 0.8
+    max_scale: 1.2
+
+# ------------------------------------------------------------------
+# Checkpoint and logging
+# ------------------------------------------------------------------
+output:
+  checkpoint_dir: /models/efficientdet_lite2_150cls/checkpoints
+  best_model_path: /models/efficientdet_lite2_150cls/best_model.tflite
+  tensorboard_log_dir: /models/efficientdet_lite2_150cls/logs
+  save_freq: 5                   # save checkpoint every N epochs
+  export_saved_model: true       # also export TF SavedModel alongside TFLite
+
+# ------------------------------------------------------------------
+# TFLite export and quantisation
+# ------------------------------------------------------------------
+export:
+  tflite_filename: best_model.tflite
+  quantisation: dynamic_range    # options: none | dynamic_range | full_int8 | float16
+  representative_dataset_size: 500   # images used for int8 calibration
+  # For full_int8 quantisation, set the representative dataset:
+  representative_dataset_pattern: /data/tfrecords/val/shard-*.tfrecord
+  add_metadata: true             # embed TFLite Model Metadata (labels + input info)
+
+# ------------------------------------------------------------------
+# Evaluation settings (used by evaluate_model.py)
+# ------------------------------------------------------------------
+evaluation:
+  iou_threshold: 0.5
+  score_threshold: 0.3
+  max_detections_per_image: 100
+  report_top_n_classes: 20       # print P/R/F1 for top-N and bottom-N classes
+  confusion_matrix_png: /reports/confusion_matrix.png
