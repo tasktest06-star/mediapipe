@@ -1,0 +1,237 @@
+\documentclass[12pt,a4paper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{parskip}
+\usepackage{titlesec}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{tikz}
+\usetikzlibrary{shapes,arrows,positioning,fit,backgrounds,calc}
+
+\definecolor{mpblue}{HTML}{1A73E8}
+\definecolor{mpgreen}{HTML}{34A853}
+\definecolor{mporange}{HTML}{EA8600}
+\definecolor{mppurple}{HTML}{9C27B0}
+\definecolor{mpgray}{HTML}{5F6368}
+\definecolor{mpred}{HTML}{EA4335}
+\definecolor{codebg}{HTML}{F8F9FA}
+\definecolor{codeframe}{HTML}{DADCE0}
+\definecolor{skincolor}{HTML}{FDBCB4}
+\definecolor{bonecolor}{HTML}{E8D5B7}
+
+\hypersetup{colorlinks=true, linkcolor=mpblue, urlcolor=mpblue,
+    pdftitle={MediaPipe Tutorial 03 -- Hand Tracking}}
+
+\lstdefinestyle{pythonstyle}{
+    language=Python, backgroundcolor=\color{codebg},
+    frame=single, framerule=0.8pt, rulecolor=\color{codeframe},
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{mpblue}\bfseries,
+    stringstyle=\color{mpgreen},
+    commentstyle=\color{mpgray}\itshape,
+    numberstyle=\tiny\color{mpgray},
+    numbers=left, numbersep=8pt,
+    breaklines=true, showstringspaces=false, tabsize=4,
+}
+\lstset{style=pythonstyle}
+
+\titleformat{\section}{\large\bfseries\color{mpblue}}{}{0em}{}[\titlerule]
+\titleformat{\subsection}{\normalsize\bfseries\color{mpgray}}{}{0em}{}
+
+\tikzset{
+    joint/.style={circle, fill=#1, draw=#1!70!black, minimum size=7pt, inner sep=0pt},
+    bone/.style={draw=#1, line width=2pt, line cap=round},
+    lmlabel/.style={font=\tiny\bfseries, color=#1},
+}
+
+\begin{document}
+
+\title{\textbf{\textcolor{mpblue}{MediaPipe Tutorial 03}}\\[0.4em]
+    \large Hand Tracking: 21 Keypoints, Gesture Recognition,\\
+    Finger Counting, and Mouse Control}
+\author{MediaPipe Tutorials Series}
+\date{\today}
+\maketitle
+\tableofcontents
+\newpage
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Introduction}
+
+The MediaPipe Hand Landmark model detects 21 3D keypoints of a hand skeleton from a single
+RGB image at 30+~FPS on a CPU. This tutorial builds four applications: landmark overlay,
+finger counting, rock/paper/scissors recognition, and gesture mouse control.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Hand Skeleton Diagram -- 21 Landmarks}
+
+\bigskip
+
+\begin{center}
+\begin{tikzpicture}[scale=1.1, yscale=-1]  % yscale=-1 so y increases downward
+
+    % ── Wrist ──────────────────────────────────────────────────────────────
+    \node[joint=mpgray] (w)  at (3.0, 9.0) {};
+    \node[lmlabel=mpgray, right=2pt] at (w.east) {0 WRIST};
+
+    % ── Thumb ──────────────────────────────────────────────────────────────
+    \node[joint=mporange] (t1) at (1.5, 8.0) {};  % CMC
+    \node[joint=mporange] (t2) at (0.8, 6.8) {};  % MCP
+    \node[joint=mporange] (t3) at (0.2, 5.8) {};  % IP
+    \node[joint=mporange] (t4) at (-0.2,4.8) {};  % TIP
+    \draw[bone=mporange] (w)--(t1)--(t2)--(t3)--(t4);
+    \node[lmlabel=mporange, left=2pt] at (t1.west) {1};
+    \node[lmlabel=mporange, left=2pt] at (t2.west) {2};
+    \node[lmlabel=mporange, left=2pt] at (t3.west) {3};
+    \node[lmlabel=mporange, left=2pt] at (t4.west) {4 TIP};
+
+    % ── Index finger ───────────────────────────────────────────────────────
+    \node[joint=mpblue] (i1) at (2.0, 7.5) {};  % MCP
+    \node[joint=mpblue] (i2) at (1.8, 5.8) {};  % PIP
+    \node[joint=mpblue] (i3) at (1.7, 4.3) {};  % DIP
+    \node[joint=mpblue] (i4) at (1.6, 3.0) {};  % TIP
+    \draw[bone=mpblue] (w)--(i1)--(i2)--(i3)--(i4);
+    \node[lmlabel=mpblue, right=2pt] at (i1.east) {5 MCP};
+    \node[lmlabel=mpblue, right=2pt] at (i2.east) {6 PIP};
+    \node[lmlabel=mpblue, right=2pt] at (i3.east) {7 DIP};
+    \node[lmlabel=mpblue, right=2pt] at (i4.east) {8 TIP};
+
+    % ── Middle finger ──────────────────────────────────────────────────────
+    \node[joint=mpgreen] (m1) at (3.0, 7.3) {};
+    \node[joint=mpgreen] (m2) at (3.0, 5.5) {};
+    \node[joint=mpgreen] (m3) at (3.0, 4.0) {};
+    \node[joint=mpgreen] (m4) at (3.0, 2.6) {};
+    \draw[bone=mpgreen] (w)--(m1)--(m2)--(m3)--(m4);
+    \node[lmlabel=mpgreen, right=2pt] at (m1.east) {9};
+    \node[lmlabel=mpgreen, right=2pt] at (m2.east) {10};
+    \node[lmlabel=mpgreen, right=2pt] at (m3.east) {11};
+    \node[lmlabel=mpgreen, right=2pt] at (m4.east) {12 TIP};
+
+    % ── Ring finger ────────────────────────────────────────────────────────
+    \node[joint=mppurple] (r1) at (4.0, 7.5) {};
+    \node[joint=mppurple] (r2) at (4.2, 5.8) {};
+    \node[joint=mppurple] (r3) at (4.3, 4.3) {};
+    \node[joint=mppurple] (r4) at (4.4, 3.0) {};
+    \draw[bone=mppurple] (w)--(r1)--(r2)--(r3)--(r4);
+    \node[lmlabel=mppurple, right=2pt] at (r1.east) {13};
+    \node[lmlabel=mppurple, right=2pt] at (r2.east) {14};
+    \node[lmlabel=mppurple, right=2pt] at (r3.east) {15};
+    \node[lmlabel=mppurple, right=2pt] at (r4.east) {16 TIP};
+
+    % ── Pinky ──────────────────────────────────────────────────────────────
+    \node[joint=mpred] (p1) at (4.8, 7.8) {};
+    \node[joint=mpred] (p2) at (5.2, 6.3) {};
+    \node[joint=mpred] (p3) at (5.4, 5.1) {};
+    \node[joint=mpred] (p4) at (5.6, 4.0) {};
+    \draw[bone=mpred] (w)--(p1)--(p2)--(p3)--(p4);
+    \node[lmlabel=mpred, right=2pt] at (p1.east) {17};
+    \node[lmlabel=mpred, right=2pt] at (p2.east) {18};
+    \node[lmlabel=mpred, right=2pt] at (p3.east) {19};
+    \node[lmlabel=mpred, right=2pt] at (p4.east) {20 TIP};
+
+    % ── Palm base connections ──────────────────────────────────────────────
+    \draw[bone=mpgray!50] (i1)--(m1)--(r1)--(p1);
+    \draw[bone=mpgray!50] (t1)--(i1);
+
+    % ── Legend ─────────────────────────────────────────────────────────────
+    \matrix [below=1cm of w, column sep=8pt, row sep=2pt,
+             nodes={font=\small}] {
+        \node[joint=mporange, label=right:Thumb]; &
+        \node[joint=mpblue,   label=right:Index]; \\
+        \node[joint=mpgreen,  label=right:Middle]; &
+        \node[joint=mppurple, label=right:Ring]; \\
+        \node[joint=mpred,    label=right:Pinky]; &
+        \node[joint=mpgray,   label=right:Wrist]; \\
+    };
+
+\end{tikzpicture}
+\end{center}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Minimal Hand Detection}
+
+\begin{lstlisting}[caption={Hand landmark overlay}]
+import cv2, mediapipe as mp
+mp_hands = mp.solutions.hands
+mp_draw  = mp.solutions.drawing_utils
+
+cap = cv2.VideoCapture(0)
+with mp_hands.Hands(max_num_hands=2, model_complexity=0,
+                    min_detection_confidence=0.5,
+                    min_tracking_confidence=0.5) as hands:
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret: break
+        frame = cv2.flip(frame, 1)
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        res = hands.process(rgb)
+        if res.multi_hand_landmarks:
+            for lms in res.multi_hand_landmarks:
+                mp_draw.draw_landmarks(frame, lms,
+                                       mp_hands.HAND_CONNECTIONS)
+        cv2.imshow("Hands", frame)
+        if cv2.waitKey(1) & 0xFF == ord('q'): break
+cap.release(); cv2.destroyAllWindows()
+\end{lstlisting}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Finger Counting}
+
+A finger is up when its tip $y$-coordinate is \emph{less than} its MCP $y$-coordinate
+(smaller $y$ = higher on screen). The thumb uses $x$-coordinates due to its lateral motion.
+
+\begin{lstlisting}[caption={Finger counting logic}]
+FINGER_TIPS = [4, 8, 12, 16, 20]
+FINGER_MCPS = [2, 5,  9, 13, 17]
+
+def count_fingers(lms, label):
+    lm = lms.landmark
+    up = 0
+    # Thumb
+    if label == "Right":
+        up += 1 if lm[4].x < lm[2].x else 0
+    else:
+        up += 1 if lm[4].x > lm[2].x else 0
+    # Fingers 2-5
+    for tip, mcp in zip(FINGER_TIPS[1:], FINGER_MCPS[1:]):
+        up += 1 if lm[tip].y < lm[mcp].y else 0
+    return up
+\end{lstlisting}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Rock / Paper / Scissors}
+
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Gesture} & \textbf{Fingers up} & \textbf{Classification rule} \\
+\midrule
+Rock     & 0 & All fingers down \\
+Paper    & 5 & All fingers up \\
+Scissors & 2 & Index + middle up only \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{lstlisting}[caption={Gesture classifier}]
+def classify_gesture(state):  # state = [thumb, idx, mid, ring, pinky]
+    if sum(state) == 0:   return "Rock"
+    if sum(state) == 5:   return "Paper"
+    if state[1] and state[2] and not state[3] and not state[4]:
+        return "Scissors"
+    return "Unknown"
+\end{lstlisting}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Next Steps}
+
+Proceed to Tutorial~04 to estimate full-body pose with 33 BlazePose landmarks and build
+exercise rep-counters.
+
+\end{document}
