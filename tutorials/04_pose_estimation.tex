@@ -1,0 +1,248 @@
+\documentclass[12pt,a4paper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{parskip}
+\usepackage{titlesec}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{tikz}
+\usetikzlibrary{shapes,arrows,positioning,fit,backgrounds,calc}
+
+\definecolor{mpblue}{HTML}{1A73E8}
+\definecolor{mpgreen}{HTML}{34A853}
+\definecolor{mporange}{HTML}{EA8600}
+\definecolor{mppurple}{HTML}{9C27B0}
+\definecolor{mpgray}{HTML}{5F6368}
+\definecolor{mpred}{HTML}{EA4335}
+\definecolor{codebg}{HTML}{F8F9FA}
+\definecolor{codeframe}{HTML}{DADCE0}
+
+\hypersetup{colorlinks=true, linkcolor=mpblue, urlcolor=mpblue,
+    pdftitle={MediaPipe Tutorial 04 -- Pose Estimation}}
+
+\lstdefinestyle{pythonstyle}{
+    language=Python, backgroundcolor=\color{codebg},
+    frame=single, framerule=0.8pt, rulecolor=\color{codeframe},
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{mpblue}\bfseries,
+    stringstyle=\color{mpgreen},
+    commentstyle=\color{mpgray}\itshape,
+    numberstyle=\tiny\color{mpgray},
+    numbers=left, numbersep=8pt,
+    breaklines=true, showstringspaces=false, tabsize=4,
+}
+\lstset{style=pythonstyle}
+
+\titleformat{\section}{\large\bfseries\color{mpblue}}{}{0em}{}[\titlerule]
+\titleformat{\subsection}{\normalsize\bfseries\color{mpgray}}{}{0em}{}
+
+\tikzset{
+    joint/.style={circle, fill=#1, draw=#1!70!black,
+        minimum size=8pt, inner sep=0pt},
+    bone/.style={draw=#1, line width=2.0pt, line cap=round},
+    btmlabel/.style={font=\tiny, color=#1, align=center},
+}
+
+\begin{document}
+
+\title{\textbf{\textcolor{mpblue}{MediaPipe Tutorial 04}}\\[0.4em]
+    \large Pose Estimation: 33 Body Landmarks, Bicep Curl Counter,\\
+    and Squat Counter with Joint Angle Analysis}
+\author{MediaPipe Tutorials Series}
+\date{\today}
+\maketitle
+\tableofcontents
+\newpage
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Introduction}
+
+BlazePose provides 33 body landmarks at real-time speeds. This tutorial builds a reusable
+joint-angle utility and two exercise rep-counters (bicep curl and squat), with real-time
+performance optimisation techniques.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Body Landmark Diagram -- 33 Points}
+
+\bigskip
+
+\begin{center}
+\begin{tikzpicture}[scale=0.85, yscale=-1]
+
+    %% ── Head ──────────────────────────────────────────────────────────────
+    \node[joint=mpgray]    (nose)    at (5,0.5)  {};
+    \node[btmlabel=mpgray, right] at (nose.east) {0 nose};
+    \draw[fill=mpgray!20, draw=mpgray!50] (5,0) circle (0.9cm);
+
+    %% ── Shoulders ─────────────────────────────────────────────────────────
+    \node[joint=mpblue] (lsh) at (2.5,3.0) {};
+    \node[joint=mpblue] (rsh) at (7.5,3.0) {};
+    \draw[bone=mpblue!50] (lsh) -- (rsh);
+    \node[btmlabel=mpblue, left]  at (lsh.west) {11 L.Sh};
+    \node[btmlabel=mpblue, right] at (rsh.east) {12 R.Sh};
+
+    %% ── Elbows ────────────────────────────────────────────────────────────
+    \node[joint=mpgreen] (lelb) at (1.2,5.5) {};
+    \node[joint=mpgreen] (relb) at (8.8,5.5) {};
+    \draw[bone=mpblue] (lsh)--(lelb);
+    \draw[bone=mpblue] (rsh)--(relb);
+    \node[btmlabel=mpgreen, left]  at (lelb.west) {13 L.El};
+    \node[btmlabel=mpgreen, right] at (relb.east) {14 R.El};
+
+    %% ── Wrists ────────────────────────────────────────────────────────────
+    \node[joint=mpgreen] (lwr) at (0.5,7.8) {};
+    \node[joint=mpgreen] (rwr) at (9.5,7.8) {};
+    \draw[bone=mpgreen] (lelb)--(lwr);
+    \draw[bone=mpgreen] (relb)--(rwr);
+    \node[btmlabel=mpgreen, left]  at (lwr.west) {15 L.Wr};
+    \node[btmlabel=mpgreen, right] at (rwr.east) {16 R.Wr};
+
+    %% ── Hips ──────────────────────────────────────────────────────────────
+    \node[joint=mporange] (lhip) at (3.8,7.5) {};
+    \node[joint=mporange] (rhip) at (6.2,7.5) {};
+    \draw[bone=mporange!50] (lhip)--(rhip);
+    \draw[bone=mpgray!60] (lsh)--(lhip);
+    \draw[bone=mpgray!60] (rsh)--(rhip);
+    \node[btmlabel=mporange, left]  at (lhip.west) {23 L.Hip};
+    \node[btmlabel=mporange, right] at (rhip.east) {24 R.Hip};
+
+    %% ── Knees ─────────────────────────────────────────────────────────────
+    \node[joint=mppurple] (lkn) at (3.5,10.5) {};
+    \node[joint=mppurple] (rkn) at (6.5,10.5) {};
+    \draw[bone=mporange] (lhip)--(lkn);
+    \draw[bone=mporange] (rhip)--(rkn);
+    \node[btmlabel=mppurple, left]  at (lkn.west) {25 L.Kn};
+    \node[btmlabel=mppurple, right] at (rkn.east) {26 R.Kn};
+
+    %% ── Ankles ────────────────────────────────────────────────────────────
+    \node[joint=mpred] (lank) at (3.2,13.2) {};
+    \node[joint=mpred] (rank) at (6.8,13.2) {};
+    \draw[bone=mppurple] (lkn)--(lank);
+    \draw[bone=mppurple] (rkn)--(rank);
+    \node[btmlabel=mpred, left]  at (lank.west) {27 L.Ank};
+    \node[btmlabel=mpred, right] at (rank.east) {28 R.Ank};
+
+    %% ── Feet ──────────────────────────────────────────────────────────────
+    \node[joint=mpred!70] (lheel) at (3.0,14.5) {};
+    \node[joint=mpred!70] (rheel) at (7.0,14.5) {};
+    \node[joint=mpred!70] (ltoe)  at (3.5,15.5) {};
+    \node[joint=mpred!70] (rtoe)  at (6.5,15.5) {};
+    \draw[bone=mpred!60] (lank)--(lheel)--(ltoe);
+    \draw[bone=mpred!60] (rank)--(rheel)--(rtoe);
+    \node[btmlabel=mpred!70, left]  at (lheel.west) {29};
+    \node[btmlabel=mpred!70, right] at (rheel.east) {30};
+    \node[btmlabel=mpred!70, left]  at (ltoe.west)  {31};
+    \node[btmlabel=mpred!70, right] at (rtoe.east)  {32};
+
+    %% ── Neck / head connection ─────────────────────────────────────────────
+    \draw[bone=mpgray!60] (5,1.4) -- (5,3.0);
+    \draw[bone=mpgray!60] (5,3.0) -- (lsh);
+    \draw[bone=mpgray!60] (5,3.0) -- (rsh);
+
+    %% ── Angle annotation (elbow) ───────────────────────────────────────────
+    \draw[<->, thick, dashed, color=mpgreen]
+        (lsh) -- node[midway, fill=white, font=\tiny] {$\theta_{elbow}$} (lelb);
+
+    %% ── Angle annotation (knee) ────────────────────────────────────────────
+    \draw[<->, thick, dashed, color=mppurple]
+        (lhip) -- node[midway, fill=white, font=\tiny] {$\theta_{knee}$} (lkn);
+
+\end{tikzpicture}
+\end{center}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Joint Angle Calculation}
+
+The angle $\theta$ at joint $B$ formed by points $A$, $B$, $C$ is:
+
+\[
+    \theta = \arccos\!\left(
+        \frac{(\mathbf{A}-\mathbf{B}) \cdot (\mathbf{C}-\mathbf{B})}
+             {\|\mathbf{A}-\mathbf{B}\| \cdot \|\mathbf{C}-\mathbf{B}\|}
+    \right)
+\]
+
+\begin{lstlisting}[caption={Joint angle utility}]
+import numpy as np
+
+def calculate_angle(a, b, c):
+    """Angle at B in degrees, given 2-D or 3-D points A, B, C."""
+    a, b, c = np.array(a, float), np.array(b, float), np.array(c, float)
+    ba, bc = a - b, c - b
+    cosine = np.dot(ba, bc) / (
+        np.linalg.norm(ba) * np.linalg.norm(bc) + 1e-9)
+    return np.degrees(np.arccos(np.clip(cosine, -1.0, 1.0)))
+\end{lstlisting}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Bicep Curl Rep Counter}
+
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Stage} & \textbf{Elbow angle} & \textbf{Transition} \\
+\midrule
+Down (extended) & $> 160^\circ$ & Sets stage to ``down'' \\
+Up (curled)     & $< 30^\circ$  & Increments count, sets stage to ``up'' \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{lstlisting}[caption={Bicep curl counter logic}]
+class ArmCurlCounter:
+    def __init__(self, angle_down=160, angle_up=30):
+        self.count = 0
+        self.stage = "down"
+        self.angle_down, self.angle_up = angle_down, angle_up
+
+    def update(self, angle):
+        if angle > self.angle_down:
+            self.stage = "down"
+        if angle < self.angle_up and self.stage == "down":
+            self.stage = "up"
+            self.count += 1
+        return self.count, self.stage
+\end{lstlisting}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Squat Counter}
+
+\begin{lstlisting}[caption={Squat counter logic}]
+class SquatCounter:
+    def __init__(self, angle_stand=160, angle_squat=100):
+        self.count = 0
+        self.stage = "up"
+        self.angle_stand, self.angle_squat = angle_stand, angle_squat
+
+    def update(self, left_angle, right_angle):
+        avg = (left_angle + right_angle) / 2
+        if avg > self.angle_stand:
+            self.stage = "up"
+        if avg < self.angle_squat and self.stage == "up":
+            self.stage = "down"
+            self.count += 1
+        return self.count, self.stage, avg
+\end{lstlisting}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Performance Tips}
+
+\begin{itemize}
+    \item Reduce resolution: \texttt{cap.set(cv2.CAP\_PROP\_FRAME\_WIDTH, 640)}.
+    \item Use \texttt{model\_complexity=0} for real-time mobile-class hardware.
+    \item Skip inference on alternate frames when FPS is constrained.
+    \item Run capture and inference on separate threads.
+\end{itemize}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Next Steps}
+
+Proceed to Tutorial~05 to detect and track arbitrary objects with EfficientDet-Lite.
+
+\end{document}
